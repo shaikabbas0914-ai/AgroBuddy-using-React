@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '', // Empty because Vite proxy handles /api and /auth
+  baseURL: import.meta.env.VITE_API_BASE_URL || '', // Use env variable or empty for Vite proxy
   withCredentials: true // Important for sending/receiving HttpOnly cookies
 });
 
