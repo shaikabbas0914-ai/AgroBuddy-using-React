@@ -38,7 +38,7 @@ function App() {
           element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login setIsAuthenticated={setIsAuthenticated} />} 
         />
         
-        <Route element={<Layout isAuthenticated={isAuthenticated} />}>
+        <Route element={<Layout isAuthenticated={isAuthenticated} setIsAuthenticated={setIsAuthenticated} />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/crop" element={<CropRecommendation />} />
           <Route path="/fertilizer" element={<FertilizerSuggestion />} />

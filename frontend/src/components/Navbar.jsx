@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import './Navbar.css';
 
-const Navbar = () => {
+const Navbar = ({ setIsAuthenticated }) => {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
+      setIsAuthenticated(false);
       navigate('/');
     } catch (err) {
       console.error(err);
