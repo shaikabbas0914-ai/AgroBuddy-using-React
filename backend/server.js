@@ -16,9 +16,19 @@ app.use(helmet()); // Sets various HTTP headers for security
 // Logging
 app.use(morgan('combined')); // Log HTTP requests
 
+const sanitize = require('mongo-sanitize');
+
 // Body and Cookie parsers
 app.use(express.json());
 app.use(cookieParser());
+
+// Sanitize inputs against NoSQL injection
+app.use((req, res, next) => {
+  req.body = sanitize(req.body);
+  req.query = sanitize(req.query);
+  req.params = sanitize(req.params);
+  next();
+});
 
 // CORS configuration (allow frontend to connect and send cookies)
 const allowedOrigins = [

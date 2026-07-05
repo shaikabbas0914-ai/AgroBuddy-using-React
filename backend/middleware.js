@@ -4,7 +4,7 @@ const verifyToken = (req, res, next) => {
   const token = req.cookies.token;
 
   if (!token) {
-    return res.status(403).json({ message: 'A token is required for authentication' });
+    return res.status(403).json({ message: 'Authentication required' });
   }
 
   try {
@@ -16,4 +16,13 @@ const verifyToken = (req, res, next) => {
   return next();
 };
 
-module.exports = { verifyToken };
+const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied: insufficient permissions' });
+    }
+    return next();
+  };
+};
+
+module.exports = { verifyToken, authorizeRoles };

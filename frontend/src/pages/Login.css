@@ -63,3 +63,34 @@
 .w-full {
   width: 100%;
 }
+
+.or-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 1.5rem 0;
+  color: var(--color-dark-gray);
+  font-size: 0.85rem;
+}
+
+.or-divider::before,
+.or-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #ddd;
+}
+
+.or-divider:not(:empty)::before {
+  margin-right: .5em;
+}
+
+.or-divider:not(:empty)::after {
+  margin-left: .5em;
+}
+
+.google-login-btn {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+

@@ -27,17 +27,43 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
+  },
   isVerified: {
     type: Boolean,
-    default: true
+    default: false // Set to false to enforce email verification
+  },
+  verificationToken: {
+    type: String,
+    default: null
+  },
+  loginAttempts: {
+    type: Number,
+    required: true,
+    default: 0
+  },
+  lockUntil: {
+    type: Number,
+    default: null
   },
   resetToken: {
     type: String,
     default: null
   },
   resetTokenExpiry: {
-    type: Number, // Storing timestamp as number to match previous design (Date.now() + 3600000)
+    type: Number,
     default: null
+  },
+  mfaSecret: {
+    type: String,
+    default: null
+  },
+  mfaEnabled: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
