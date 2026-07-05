@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL;
 
 if (!MONGODB_URI) {
-  console.error('WARNING: MONGODB_URI environment variable is not defined. Please define it in your environment or .env file.');
+  console.error('WARNING: MONGODB_URI or MONGODB_URL environment variable is not defined. Please define it in your environment or .env file.');
 } else {
   mongoose.connect(MONGODB_URI)
     .then(() => {
