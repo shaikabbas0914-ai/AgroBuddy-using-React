@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const db = require('./database');
+const User = require('./database');
 const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
@@ -25,40 +25,33 @@ router.post('/register', async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const verificationToken = uuidv4(); // Mocking email verification
 
-    db.run(
-      `INSERT INTO users (email, password, isVerified) VALUES (?, ?, ?)`,
-      [email, hashedPassword, 1], // Auto-verify for mock purposes
-      function (err) {
-        if (err) {
-          if (err.message.includes('UNIQUE')) {
-             // Generic error for duplicate to avoid email enumeration if needed, but standard practice usually says "User already exists" for registration.
-            return res.status(400).json({ message: 'Registration failed. User already exists.' });
-          }
-          return res.status(500).json({ message: 'Internal server error' });
-        }
-        res.status(201).json({ message: 'User registered successfully. Please login.' });
-      }
-    );
+    await User.create({
+      email,
+      password: hashedPassword,
+      isVerified: true // Auto-verify for mock purposes
+    });
+
+    res.status(201).json({ message: 'User registered successfully. Please login.' });
   } catch (error) {
+    if (error.code === 11000 || (error.message && error.message.includes('duplicate key'))) {
+      return res.status(400).json({ message: 'Registration failed. User already exists.' });
+    }
+    console.error('Registration error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
 
-router.post('/login', loginLimiter, (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ message: 'Invalid credentials' });
   }
 
-  db.get(`SELECT * FROM users WHERE email = ?`, [email], async (err, user) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ message: 'Internal server error' });
-    }
-
+  try {
+    const user = await User.findOne({ email });
+    
     // Generic error message: never reveal whether email or password is wrong
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -70,7 +63,7 @@ router.post('/login', loginLimiter, (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user._id, email: user.email },
       JWT_SECRET,
       { expiresIn: '1h' } // Implement session expiry
     );
@@ -84,7 +77,10 @@ router.post('/login', loginLimiter, (req, res) => {
     });
 
     res.status(200).json({ message: 'Login successful' });
-  });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
 });
 
 router.post('/logout', (req, res) => {
@@ -92,47 +88,53 @@ router.post('/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
-router.post('/forgot-password', (req, res) => {
+router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   
   // Use expiring, single-use tokens
   const resetToken = uuidv4();
   const resetTokenExpiry = Date.now() + 3600000; // 1 hour
   
-  db.run(`UPDATE users SET resetToken = ?, resetTokenExpiry = ? WHERE email = ?`,
-    [resetToken, resetTokenExpiry, email],
-    function(err) {
-      if (err) {
-        console.error(err);
-      }
-      // Don't reveal if email exists. Always return success.
-      res.status(200).json({ message: 'If that email address is in our database, we will send you an email to reset your password.' });
-    }
-  );
+  try {
+    await User.findOneAndUpdate(
+      { email },
+      { resetToken, resetTokenExpiry }
+    );
+    // Don't reveal if email exists. Always return success.
+    res.status(200).json({ message: 'If that email address is in our database, we will send you an email to reset your password.' });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(200).json({ message: 'If that email address is in our database, we will send you an email to reset your password.' });
+  }
 });
 
 router.post('/reset-password', async (req, res) => {
   const { email, token, newPassword } = req.body;
   
-  db.get(`SELECT * FROM users WHERE email = ? AND resetToken = ? AND resetTokenExpiry > ?`, 
-    [email, token, Date.now()], 
-    async (err, user) => {
-      if (err || !user) {
-         return res.status(400).json({ message: 'Invalid or expired reset token' });
-      }
+  try {
+    const user = await User.findOne({
+      email,
+      resetToken: token,
+      resetTokenExpiry: { $gt: Date.now() }
+    });
 
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-      
-      // Invalidate old token
-      db.run(`UPDATE users SET password = ?, resetToken = NULL, resetTokenExpiry = NULL WHERE id = ?`, 
-        [hashedPassword, user.id], 
-        (updateErr) => {
-           if (updateErr) return res.status(500).json({ message: 'Error resetting password' });
-           res.status(200).json({ message: 'Password has been reset successfully' });
-        }
-      );
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
     }
-  );
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Invalidate old token and update password
+    user.password = hashedPassword;
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
+    await user.save();
+
+    res.status(200).json({ message: 'Password has been reset successfully' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ message: 'Error resetting password' });
+  }
 });
 
 router.get('/check-session', (req, res) => {

@@ -1,31 +1,48 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const mongoose = require('mongoose');
 
-const dbPath = path.resolve(__dirname, 'agrobuddy.db');
+const MONGODB_URI = process.env.MONGODB_URI;
 
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database', err.message);
-  } else {
-    console.log('Connected to the SQLite database.');
-    
-    // Create Users table
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE,
-      password TEXT,
-      isVerified INTEGER DEFAULT 0,
-      resetToken TEXT,
-      resetTokenExpiry INTEGER
-    )`);
+if (!MONGODB_URI) {
+  console.error('WARNING: MONGODB_URI environment variable is not defined. Please define it in your environment or .env file.');
+} else {
+  mongoose.connect(MONGODB_URI)
+    .then(() => {
+      console.log('Connected to MongoDB database successfully.');
+    })
+    .catch((err) => {
+      console.error('Error connecting to MongoDB:', err.message);
+    });
+}
 
-    // Create Login attempts table
-    db.run(`CREATE TABLE IF NOT EXISTS login_attempts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT,
-      attempt_time INTEGER
-    )`);
+// User Schema
+const userSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true
+  },
+  password: {
+    type: String,
+    required: true
+  },
+  isVerified: {
+    type: Boolean,
+    default: true
+  },
+  resetToken: {
+    type: String,
+    default: null
+  },
+  resetTokenExpiry: {
+    type: Number, // Storing timestamp as number to match previous design (Date.now() + 3600000)
+    default: null
   }
+}, {
+  timestamps: true
 });
 
-module.exports = db;
+const User = mongoose.model('User', userSchema);
+
+module.exports = User;
